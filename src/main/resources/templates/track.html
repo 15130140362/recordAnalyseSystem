@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="text/html;charset=UTF-8"/>
+    <title th:text="${title}"></title>
+    <div th:replace="fragments/header :: css"></div>
+    <link rel="stylesheet" th:href="@{http://api.map.baidu.com/library/DrawingManager/1.4/src/DrawingManager_min.css}"/>
+    <style>
+        #mapHolder {
+            flex: 1;
+        }
+
+        .map-controlls {
+            height: 120px;
+            background: #222;
+        }
+
+        .BMap_Marker > div > img {
+            width: 25px;
+            height: 25px;
+        }
+
+        .BMap_bubble_content > img {
+            padding: 10px;
+            height: 200px;
+            width: 200px;
+        }
+    </style>
+    <script th:src="@{http://api.map.baidu.com/api?v=2.0&amp;ak=eGgfhshrvZANxKGXHKfaGK3YBWcXOgYN&amp;callback=mapOnLoad}"></script>
+    <script th:src="@{assets/js/jquery-3.2.1.min.js}"></script>
+    <script th:src="@{assets/js/proper.min.js}"></script>
+    <script th:src="@{assets/js/bootstrap-4.0.0beta.min.js}"></script>
+    <script type="text/javascript">
+        var map;
+        // 覆盖物图标地址
+        var iconSrc = $('#tecIcon').attr('src');
+        // 加载百度地图js文件后的回调函数
+        var car;   //汽车图标
+        var label; //信息标签
+        var centerPoint;
+        var timer;     //定时器
+        var index = 0; //记录播放到第几个point
+        var followChk, playBtn, pauseBtn, resetBtn;
+        var str = new Array();
+        var points = new Array();
+        var p = 0;
+        var times = new Array();
+        var t = 0;
+        var bpoint = new Array();
+        var sy;
+        var polyline;
+        var icons;
+        var index = 0;
+        //窗口信息对象
+        var info_conf = {
+            width: 250,     // 信息窗口宽度
+            height: 150,     // 信息窗口高度
+            title: "信息窗口", // 信息窗口标题
+            enableMessage: true//设置允许信息窗发送短息
+        };
+        var standard_times = new Array();
+        var st = 0;
+        var address = new Array();
+        var a = 0;
+
+        function mapOnLoad() {
+            followChk = document.getElementById("follow");
+            playBtn = document.getElementById("play");
+            pauseBtn = document.getElementById("pause");
+            resetBtn = document.getElementById("reset");
+            map = new BMap.Map('mapHolder', {enableMapClick: false});
+            // 设置地图中心点和缩放比例
+            map.centerAndZoom(new BMap.Point(108.924257, 34.235873), 15);
+            // 设置允许使用鼠标滚轮缩放地图比例
+            map.enableScrollWheelZoom(true);
+            // 待百度地图api加载完成后，再加载绘图工具js
+            loadScript('http://api.map.baidu.com/library/DrawingManager/1.4/src/DrawingManager_min.js');
+            map.addControl(new BMap.NavigationControl());
+            map.addControl(new BMap.ScaleControl());
+            map.addControl(new BMap.OverviewMapControl({isOpen: true}));
+        }
+
+        function ajaxTest() {
+            $.ajax({
+                    data: "name=" + $("#name").val(),
+                    type: "GET",
+                    dataType: 'json',
+                    url: "track/login.do",
+                    error: function (data) {
+                        alert("出错了！！:" + data.msg);
+                    },
+                    success: function (data) {
+                        str = data.msg.split(" ");
+                        for (i = 1; (str.length - i) != 0; i = i + 4) {
+                            points[p++] = str[i + 1];
+                            //  alert(points[i]+"<br/>");
+                            points[p++] = str[i + 2];
+                            standard_times[st++] = getLocalTime(str[i]);
+                            //   times[t++] = str[i];
+                            address[a++] = str[i + 3]
+
+                            //   alert("time : " + standard_times[st-1] + " address : " + address[a - 1] + " longtiude : " + points[p - 2] + " latitude : " + points[p - 1] );
+                        }
+                        alert("play");
+
+
+                        for (i = 0, j = 0; (standard_times.length - i) != 0; j = j + 2, i++) {
+                            //     alert(standard_times[i]+" "+points[j]+" "+points[j+1]);
+                            bpoint[i] = new window.BMap.Point(points[j], points[j + 1]);
+                        }
+                        init();
+                    }
+                }
+            );
+            return false;
+        }
+
+        function getLocalTime(nS) {
+            return new Date(parseInt(nS) * 1000).toLocaleString().replace(/:\d{1,2}$/, ' ');
+        }
+
+        function init() {
+            alert("init");
+            sy = new BMap.Symbol(BMap_Symbol_SHAPE_BACKWARD_OPEN_ARROW, {
+                scale: 0.6,//图标缩放大小
+                strokeColor: '#fff',//设置矢量图标的线填充颜色
+                strokeWeight: '2',//设置线宽
+            });
+            icons = new BMap.IconSequence(sy, '10', '30');
+            //多点连线
+            polyline = new BMap.Polyline(bpoint, {
+                enableEditing: false,//是否启用线编辑，默认为false
+                enableClicking: true,//是否响应点击事件，默认为true
+                icons: [icons],
+                strokeWeight: '8',//折线的宽度，以像素为单位
+                strokeOpacity: 0.8,//折线的透明度，取值范围0 - 1
+                strokeColor: "#18a45b" //折线颜色
+            });
+            map.addOverlay(polyline);
+            //增加折线
+
+            map.centerAndZoom(bpoint[0], 15);
+            index = 0;
+            car = new BMap.Marker(bpoint[index]);
+            var opts = {
+                position: bpoint[index],
+                offset: new BMap.Size(30, -30)
+            }
+
+            label = new BMap.Label("地点名称: " + address[index] + "<br></br>时间 : " + standard_times[index] + "<br></br>经度: " + points[2 * index] + "<br></br>纬度:" + points[2 * index + 1], opts);
+            label.setStyle({
+                color: "black",
+                fontSize: "20px",
+                height: "150px",
+                lineHeight: "30px",
+                fontFamily: "微软雅黑"
+            });
+
+            var marker = new BMap.Marker(bpoint[0]); // 创建点
+            map.addOverlay(marker);
+            var label1 = new BMap.Label("起点", {offset: new BMap.Size(20, -10)});
+            marker.setLabel(label1);
+            /// setTimeout("de()",2000);
+            playBtn.disabled = false;
+            resetBtn.disabled = false;
+        }
+
+        function play() {
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+            if (index != bpoint.length) {
+                var point = bpoint[index];
+                if (index != 0) {
+                    map.addOverlay(new BMap.Polyline([bpoint[index - 1], point], {
+                        strokeColor: "black",
+                        strokeWeight: 3,
+                        strokeOpacity: 3
+                    }));
+                }
+                car = new BMap.Marker(bpoint[index]);
+                var opts = {
+                    position: bpoint[index],
+                    offset: new BMap.Size(30, -30)
+                }
+
+                //label中显示经纬度信息
+                label = new BMap.Label("地点名称: " + address[index] + "<br></br>时间 : " + standard_times[index] + "<br></br>经度: " + points[2 * index] + "<br></br>纬度:" + points[2 * index + 1], opts);
+
+                label.setStyle({
+                    color: "black",
+                    fontSize: "20px",
+                    height: "150px",
+                    lineHeight: "30px",
+                    fontFamily: "微软雅黑"
+                });
+                var content = "地点名称: " + address[index] + "<br></br>时间 : " + standard_times[index] + "<br></br>经度: " + points[2 * index] + "<br></br>纬度:" + points[2 * index + 1];
+                var maker3 = new BMap.Marker(bpoint[index]);
+                map.addOverlay(maker3);  //标记每个点
+                addClickHandler(content, maker3);
+                map.addOverlay(label);
+                setTimeout("de()", 1000);
+                index++;
+                map.panTo(point);//移动到当前的点
+
+                if ((points.length - index) != 0) {
+                    timer = window.setTimeout("play()", 1000);
+                } else {
+                    playBtn.disabled = true;
+                    pauseBtn.disabled = true;
+                    map.panTo(bpoint[0]);
+                }
+            } else {
+                var marker6 = new BMap.Marker(bpoint[index - 1]); // 创建点
+                map.addOverlay(marker6);
+                var label2 = new BMap.Label("终点", {offset: new BMap.Size(20, -10)});
+                marker6.setLabel(label2);
+                var content2 = "地点名称: " + address[index - 1] + "<br></br>时间 : " + standard_times[index - 1] + "<br></br>经度: " + points[2 * (index - 1)] + "<br></br>纬度:" + points[2 * (index - 1) + 1];
+                var maker4 = new BMap.Marker(bpoint[index - 1]);
+                map.addOverlay(maker4);  //标记每个点
+                addClickHandler(content2, maker4);
+                pauseBtn.disabled = true;
+            }
+        }
+
+        //移除标签
+        function de() {
+            map.removeOverlay(label);
+        }
+
+        //添加点击事件
+        function addClickHandler(content, marker) {
+            marker.addEventListener("click", function (e) {
+                    openInfo(content, e)
+                }
+            );
+        }
+
+        //打开窗口
+        function openInfo(content, e) {
+            var p = e.target;
+            var point3 = new BMap.Point(p.getPosition().lng, p.getPosition().lat);
+            var infoWindow = new BMap.InfoWindow(content, info_conf);  // 创建信息窗口对象
+            map.openInfoWindow(infoWindow, point3); //开启信息窗口
+        }
+
+        function pause() {
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            if (timer) {
+                window.clearTimeout(timer);
+            }
+        }
+
+        function reset() {
+            //   followChk.checked = false;
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            if (timer) {
+                window.clearTimeout(timer);
+            }
+            map.clearOverlays();
+            init();
+            map.panTo(bpoint[0]);
+            //setTimeout("play()",2000)
+
+        }
+
+
+        // 加载js资源
+        function loadScript(src, async) {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = !!async; // 是否异步加载
+            document.body.appendChild(script);
+        }
+
+    </script>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div th:fragment="js">
+
+</div>
+<div class="container-fluid">
+    <div class="row">
+        <div th:replace="fragments/sider :: sider"></div>
+        <main class="col-sm-9 ml-sm-auto col-md-10 pt-3" role="main">
+            <h1 th:text="${title}"></h1>
+            <div>
+                <input type="text" placeholder="eid" name="name" id="name"/>
+                <input type="submit" value="查询" onclick="ajaxTest()"/>
+            </div>
+            <div align="center">
+                <input id="play" type="button" value="播放" onclick="play();"/>
+                <input id="pause" type="button" value="暂停" onclick="pause();"/>
+                <input id="reset" type="button" value="重置" onclick="reset()"/>
+
+            </div>
+            <div>
+                <div style="width:1080px;height:540px;" id="mapHolder"></div>
+            </div>
+
+        </main>
+        <img style="display:none;" id="tecIcon" th:src="@{assets/images/tec.png}" alt="机具"/>
+
+    </div>
+</div>
+
+<div th:replace="fragments/header :: js"></div>
+
+</body>
+</html>

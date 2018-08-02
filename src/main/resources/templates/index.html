@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="text/html;charset=UTF-8"/>
+    <title th:text="${title}"></title>
+    <div th:replace="fragments/header :: css"></div>
+</head>
+<body>
+<div th:replace="fragments/header :: header"></div>
+<div class="container-fluid">
+    <div class="row">
+        <div th:replace="fragments/sider :: sider"></div>
+        <main class="col-sm-9 ml-sm-auto col-md-10 pt-3" role="main">
+        <h2>&nbsp;&nbsp;成员分工&nbsp;&nbsp;</h2>
+            <h3>kafka&nbsp;&nbsp;&nbsp;全昊阳，王佳楠</h3>
+            <h3>spark&nbsp;&nbsp;&nbsp;丁琪，王伟东</h3>
+            <h3>redis&nbsp;&nbsp;&nbsp;赵昊天，郭伟明</h3>
+            <h3>hbase&nbsp;&nbsp;&nbsp;徐艺，任笑，蒋承</h3>
+        <h3>web&nbsp;&nbsp;&nbsp;刘旭东，杨向平</h3>
+        </main>
+    </div>
+</div>
+
+<div th:replace="fragments/header :: js"></div>
+</body>
+</html>
